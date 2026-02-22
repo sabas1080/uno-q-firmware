@@ -31,58 +31,14 @@ jobs:
         run: |
           CORE=./modules/lib/ArduinoCore-zephyr
   
-          # Quitar CONFIG_I2S, usar SAI1/DMIC
-          echo "CONFIG_I2S=n" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-          echo "CONFIG_I2S_STM32=n" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-          echo "CONFIG_AUDIO_DMIC=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-          echo "CONFIG_MPXXDTYY=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-  
-          # Ver qué pines SAI1 existen en el pinctrl
-          grep "sai1" ./zephyr/build/zephyr/zephyr.dts 2>/dev/null || \
-          grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi 2>/dev/null | head -30
-  
-          # Overlay con SAI1_A para MP34DT05TR
-          cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
-  
-          /* Revertir SPI2 a su estado original */
-          &spi2 {
-            compatible = "st,stm32h7-spi", "st,stm32-spi-fifo", "st,stm32-spi";
-            status = "okay";
-          };
-  
-          /* SAI1 para MP34DT05TR PDM */
-          &sai1_a {
-            status = "okay";
-            pinctrl-0 = <&sai1_sck_a_pe5 &sai1_sd_a_pe6>;
-            pinctrl-names = "default";
-            dmas = <&gpdma1 1 0x24 0x0>;
-            dma-names = "rx";
-          };
-  
-          / {
-            mp34dt05: mp34dt05 {
-              compatible = "st,mpxxdtyy";
-              status = "okay";
-              io-channels = <&sai1_a>;
-            };
-          };
-          EOF
-  
-          # Exportar símbolos DMIC para LLEXT
-          EXPORTS=$CORE/loader/llext_exports.c
-          cat >> $EXPORTS << 'EOF'
-  
-          /* DMIC exports for MP34DT05TR */
-          #include <zephyr/audio/dmic.h>
-          EXPORT_SYMBOL(dmic_configure);
-          EXPORT_SYMBOL(dmic_trigger);
-          EXPORT_SYMBOL(dmic_read);
-          EOF
+          # Buscar el nombre correcto del driver mpxxdtyy en Zephyr 4.2
+          grep -r "mpxx\|mp34\|pdm" ./zephyr/drivers/audio/ --include="Kconfig*" | head -20
+          grep -r "mpxx\|mp34\|pdm" ./zephyr/dts/bindings/audio/ 2>/dev/null | head -20
       
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
-          
+
       - name: Build loader
         run: |
           export ZEPHYR_BASE=$(pwd)/zephyr
