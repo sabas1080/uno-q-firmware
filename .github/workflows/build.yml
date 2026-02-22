@@ -43,7 +43,7 @@ jobs:
   
           &sai1_a {
             status = "okay";
-            pinctrl-0 = <&sai1_sck_a_pa8 &sai1_sd_a_pa10>;
+            pinctrl-0 = <&sai1_sck_b_pb3 &sai1_fs_b_pb6 &sai1_sd_a_pc1>;
             pinctrl-names = "default";
             dmas = <&gpdma1 1 0x24 0x0>;
             dma-names = "rx";
