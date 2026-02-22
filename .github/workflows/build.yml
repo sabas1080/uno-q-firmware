@@ -45,13 +45,30 @@ jobs:
           echo "CONFIG_I2S=y" >> $CONF
           echo "CONFIG_I2S_STM32=y" >> $CONF
   
-          # Buscar CMakeLists del ArduinoCore específicamente
-          find ./modules -name "CMakeLists.txt" | head -20
-          echo "---"
-          find ./ArduinoCore-zephyr -name "CMakeLists.txt" 2>/dev/null | head -10
-          echo "---"
-          ls ./modules/lib/ArduinoCore-zephyr/
-
+          # Ver qué hay en el directorio zephyr del ArduinoCore
+          ls ./modules/lib/ArduinoCore-zephyr/zephyr/ 2>/dev/null || echo "no zephyr dir"
+          cat ./modules/lib/ArduinoCore-zephyr/CMakeLists.txt | head -30
+  
+          # Crear app mínima
+          mkdir -p app
+          cat > app/CMakeLists.txt << 'CMAKE'
+          cmake_minimum_required(VERSION 3.20)
+          find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+          project(arduino_firmware)
+          target_sources(app PRIVATE src/main.c)
+          CMAKE
+  
+          mkdir -p app/src
+          echo "int main(void) { return 0; }" > app/src/main.c
+  
+          cat > app/prj.conf << 'PRJCONF'
+          CONFIG_I2S=y
+          CONFIG_I2S_STM32=y
+          PRJCONF
+  
+          cd zephyr
+          west build -b arduino_uno_q ../app -- -DBOARD_ROOT=$(pwd)/..
+  
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
