@@ -31,13 +31,40 @@ jobs:
         run: |
           CORE=./modules/lib/ArduinoCore-zephyr
   
-          # Buscar el nombre correcto del driver mpxxdtyy en Zephyr 4.2
-          grep -r "mpxx\|mp34\|pdm" ./zephyr/drivers/audio/ --include="Kconfig*" | head -20
-          grep -r "mpxx\|mp34\|pdm" ./zephyr/dts/bindings/audio/ 2>/dev/null | head -20
-      
+          # Solo habilitar AUDIO y DMIC — NO mpxxdtyy (usa I2S que falla en U585)
+          echo "CONFIG_AUDIO=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          echo "CONFIG_AUDIO_DMIC=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+  
+          # Ver binding de SAI para saber qué propiedades necesita
+          cat ./zephyr/dts/bindings/audio/st,stm32-sai.yaml 2>/dev/null || \
+          find ./zephyr/dts/bindings -name "*sai*" | head -5
+  
+          cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
+  
+          &sai1_a {
+            status = "okay";
+            pinctrl-0 = <&sai1_sck_a_pa8 &sai1_sd_a_pa10>;
+            pinctrl-names = "default";
+            dmas = <&gpdma1 1 0x24 0x0>;
+            dma-names = "rx";
+          };
+          EOF
+  
+          # Exportar símbolos SAI/DMIC
+          EXPORTS=$CORE/loader/llext_exports.c
+          cat >> $EXPORTS << 'EOF'
+  
+          /* DMIC exports */
+          #include <zephyr/audio/dmic.h>
+          EXPORT_SYMBOL(dmic_configure);
+          EXPORT_SYMBOL(dmic_trigger);
+          EXPORT_SYMBOL(dmic_read);
+          EOF
+
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
+
       - name: Check mpxxdtyy Kconfig
         run: |
           cat ./zephyr/drivers/audio/Kconfig.mpxxdtyy
