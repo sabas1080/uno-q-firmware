@@ -1,4 +1,4 @@
-name: Build Zephyr Loader with I2S
+name: Build Zephyr Loader with SAI1
 
 on:
   push:
@@ -30,54 +30,58 @@ jobs:
       - name: Apply SAI1 config and DTS overlay
         run: |
           CORE=./modules/lib/ArduinoCore-zephyr
-  
+
           echo "CONFIG_AUDIO=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
           echo "CONFIG_AUDIO_DMIC=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-  
-          cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
-  
-          &sai1_a {
-            status = "okay";
-            pinctrl-0 = <&sai1_sck_b_pb3 &sai1_fs_b_pb6 &sai1_sd_a_pc1>;
-            pinctrl-names = "default";
-            dmas = <&gpdma1 1 0x24 0x0>;
-            dma-names = "rx";
-          };
-          EOF
-  
+
+          # Verificar que sai1_a existe en el base DTS
+          grep -r "sai1_a\|sai1 {" ./zephyr/dts/arm/st/u5/ | head -10
+
+          # Escribir overlay directamente sin indentacion
+          cat > /tmp/sai1_overlay.dts << 'DTSEOF'
+&sai1_a {
+  status = "okay";
+  pinctrl-0 = <&sai1_sck_b_pb3 &sai1_fs_b_pb6 &sai1_sd_a_pc1>;
+  pinctrl-names = "default";
+  dmas = <&gpdma1 1 0x24 0x0>;
+  dma-names = "rx";
+};
+DTSEOF
+          cat /tmp/sai1_overlay.dts >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay
+
+          # Verificar overlay
+          echo "=== OVERLAY ==="
+          cat $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay
+
+          # Escribir exports directamente sin indentacion
           EXPORTS=$CORE/loader/llext_exports.c
-          cat >> $EXPORTS << 'EOF'
-  
-          /* DMIC exports */
-          #include <zephyr/audio/dmic.h>
-          EXPORT_SYMBOL(dmic_configure);
-          EXPORT_SYMBOL(dmic_trigger);
-          EXPORT_SYMBOL(dmic_read);
-  
-          /* Memory slab exports */
-          #include <zephyr/kernel.h>
-          EXPORT_SYMBOL(k_mem_slab_init);
-          EXPORT_SYMBOL(k_mem_slab_free);
-          EOF
+          cat > /tmp/new_exports.c << 'CEOF'
+/* DMIC exports */
+#include <zephyr/audio/dmic.h>
+EXPORT_SYMBOL(dmic_configure);
+EXPORT_SYMBOL(dmic_trigger);
+EXPORT_SYMBOL(dmic_read);
+/* Memory slab exports */
+#include <zephyr/kernel.h>
+EXPORT_SYMBOL(k_mem_slab_init);
+EXPORT_SYMBOL(k_mem_slab_free);
+CEOF
+          cat /tmp/new_exports.c >> $EXPORTS
+
+          # Verificar exports
+          echo "=== EXPORTS ==="
+          tail -15 $EXPORTS
 
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
-
-      - name: Check mpxxdtyy Kconfig
-        run: |
-          cat ./zephyr/drivers/audio/Kconfig.mpxxdtyy
-          echo "---"
-          cat ./zephyr/dts/bindings/audio/st,mpxxdtyy-i2s.yaml
-          echo "---"
-          cat ./zephyr/drivers/audio/Kconfig | head -20
 
       - name: Build loader
         run: |
           export ZEPHYR_BASE=$(pwd)/zephyr
           export ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.8
           CORE=./modules/lib/ArduinoCore-zephyr
-  
+
           cd zephyr
           west build -b arduino_uno_q/stm32u585xx \
             ../$CORE/loader
