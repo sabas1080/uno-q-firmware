@@ -76,12 +76,10 @@ jobs:
           export ZEPHYR_BASE=$(pwd)/zephyr
           export ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.8
           CORE=./modules/lib/ArduinoCore-zephyr
-
+  
           cd zephyr
           west build -b arduino_uno_q/stm32u585xx \
-            ../$CORE/loader \
-            -- -DBOARD_OVERLAY=$(pwd)/../$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay \
-               -DEXTRA_CONF_FILE=$(pwd)/../$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+            ../$CORE/loader
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
