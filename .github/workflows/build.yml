@@ -41,9 +41,14 @@ jobs:
 
       - name: Build firmware
         run: |
+          # Encontrar dónde quedó el board variant
+          VARIANT=$(find . -name "arduino_uno_q_stm32u585xx.conf" | head -1 | xargs dirname)
+          echo "Variant dir: $VARIANT"
+          ls $VARIANT
+            
           cd zephyr
           west build -b arduino_uno_q \
-            ../ArduinoCore-zephyr/variants/arduino_uno_q_stm32u585xx \
+            ../$VARIANT \
             -- -DCONFIG_I2S=y -DCONFIG_I2S_STM32=y
 
       - name: Upload firmware artifact
