@@ -45,9 +45,13 @@ jobs:
           echo "CONFIG_I2S=y" >> $CONF
           echo "CONFIG_I2S_STM32=y" >> $CONF
   
-          # Listar CMakeLists para encontrar el correcto
-          find . -name "CMakeLists.txt" | grep -v "build\|llext\|test\|sample\|module" | head -20
-          
+          # Buscar CMakeLists del ArduinoCore específicamente
+          find ./modules -name "CMakeLists.txt" | head -20
+          echo "---"
+          find ./ArduinoCore-zephyr -name "CMakeLists.txt" 2>/dev/null | head -10
+          echo "---"
+          ls ./modules/lib/ArduinoCore-zephyr/
+
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
