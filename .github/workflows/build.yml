@@ -1,4 +1,4 @@
-name: Build Zephyr Firmware
+name: Build Zephyr Loader with I2S
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip3 install west
+          pip3 install west pyelftools
           sudo apt-get install -y ninja-build cmake
 
       - name: Install Zephyr SDK
@@ -27,37 +27,58 @@ jobs:
           west init -m https://github.com/arduino/ArduinoCore-zephyr --mr 0.53.1 .
           west update
 
-      - name: Apply I2S config
+      - name: Apply I2S config and DTS overlay
         run: |
-          CONF=$(find . -name "arduino_uno_q_stm32u585xx.conf" | head -1)
-          echo "Found: $CONF"
-          echo "CONFIG_I2S=y" >> $CONF
-          echo "CONFIG_I2S_STM32=y" >> $CONF
+          CORE=./modules/lib/ArduinoCore-zephyr
 
-      - name: Create minimal app
-        run: |
-          mkdir -p app/src
-          cat > app/CMakeLists.txt << 'EOF'
-          cmake_minimum_required(VERSION 3.20)
-          find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-          project(arduino_firmware)
-          target_sources(app PRIVATE src/main.c)
-          EOF
-          echo "int main(void) { return 0; }" > app/src/main.c
-          cat > app/prj.conf << 'EOF'
-          CONFIG_I2S=y
-          CONFIG_I2S_STM32=y
+          # Agregar CONFIG al .conf del board
+          echo "CONFIG_I2S=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          echo "CONFIG_I2S_STM32=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+
+          # Agregar nodo I2S al overlay
+          cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
+
+          /* I2S2 para INMP441 */
+          &spi2 {
+            status = "disabled";
+          };
+
+          &i2s2 {
+            status = "okay";
+            pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
+            pinctrl-names = "default";
+            dmas = <&gpdma1 0 0x14 0x0>;
+            dma-names = "rx";
+          };
           EOF
 
-      - name: Build firmware
+          # Exportar símbolos I2S para LLEXT
+          EXPORTS=$CORE/loader/llext_exports.c
+          cat >> $EXPORTS << 'EOF'
+
+          /* I2S exports */
+          #include <zephyr/drivers/i2s.h>
+          EXPORT_SYMBOL(i2s_configure);
+          EXPORT_SYMBOL(i2s_trigger);
+          EXPORT_SYMBOL(i2s_read);
+          EOF
+
+          cat $EXPORTS | tail -10
+
+      - name: Build loader
         run: |
           export ZEPHYR_BASE=$(pwd)/zephyr
           export ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.8
+          CORE=./modules/lib/ArduinoCore-zephyr
+
           cd zephyr
-          west build -b arduino_uno_q/stm32u585xx ../app
+          west build -b arduino_uno_q/stm32u585xx \
+            ../$CORE/loader \
+            -- -DBOARD_OVERLAY=$(pwd)/../$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay \
+               -DEXTRA_CONF_FILE=$(pwd)/../$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: zephyr-firmware-i2s
+          name: zephyr-loader-i2s
           path: zephyr/build/zephyr/zephyr.bin
