@@ -42,7 +42,8 @@ jobs:
             dmas = <&gpdma1 0 0x14 0x0>;
             dma-names = "rx";
             pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
-            pinctrl-names = "default";
+            pinctrl-1 = <&spi2_sck_pd1 &spi2_miso_pc2>;
+            pinctrl-names = "default", "sleep";
             status = "okay";
           };
           EOF
