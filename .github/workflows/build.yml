@@ -38,6 +38,13 @@ jobs:
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
+      - name: Check mpxxdtyy Kconfig
+        run: |
+          cat ./zephyr/drivers/audio/Kconfig.mpxxdtyy
+          echo "---"
+          cat ./zephyr/dts/bindings/audio/st,mpxxdtyy-i2s.yaml
+          echo "---"
+          cat ./zephyr/drivers/audio/Kconfig | head -20
 
       - name: Build loader
         run: |
