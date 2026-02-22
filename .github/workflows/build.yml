@@ -30,47 +30,22 @@ jobs:
       - name: Apply SAI1 config and DTS overlay
         run: |
           CORE=./modules/lib/ArduinoCore-zephyr
+          OVERLAY=$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay
+          CONF=$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          EXPORTS=$CORE/loader/llext_exports.c
 
-          echo "CONFIG_AUDIO=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-          echo "CONFIG_AUDIO_DMIC=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          echo "CONFIG_AUDIO=y" >> $CONF
+          echo "CONFIG_AUDIO_DMIC=y" >> $CONF
 
-          # Verificar que sai1_a existe en el base DTS
           grep -r "sai1_a\|sai1 {" ./zephyr/dts/arm/st/u5/ | head -10
 
-          # Escribir overlay directamente sin indentacion
-          cat > /tmp/sai1_overlay.dts << 'DTSEOF'
-&sai1_a {
-  status = "okay";
-  pinctrl-0 = <&sai1_sck_b_pb3 &sai1_fs_b_pb6 &sai1_sd_a_pc1>;
-  pinctrl-names = "default";
-  dmas = <&gpdma1 1 0x24 0x0>;
-  dma-names = "rx";
-};
-DTSEOF
-          cat /tmp/sai1_overlay.dts >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay
+          printf '&sai1_a {\n  status = "okay";\n  pinctrl-0 = <&sai1_sck_b_pb3 &sai1_fs_b_pb6 &sai1_sd_a_pc1>;\n  pinctrl-names = "default";\n  dmas = <&gpdma1 1 0x24 0x0>;\n  dma-names = "rx";\n};\n' >> $OVERLAY
 
-          # Verificar overlay
-          echo "=== OVERLAY ==="
-          cat $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay
+          echo "=== OVERLAY ===" && cat $OVERLAY
 
-          # Escribir exports directamente sin indentacion
-          EXPORTS=$CORE/loader/llext_exports.c
-          cat > /tmp/new_exports.c << 'CEOF'
-/* DMIC exports */
-#include <zephyr/audio/dmic.h>
-EXPORT_SYMBOL(dmic_configure);
-EXPORT_SYMBOL(dmic_trigger);
-EXPORT_SYMBOL(dmic_read);
-/* Memory slab exports */
-#include <zephyr/kernel.h>
-EXPORT_SYMBOL(k_mem_slab_init);
-EXPORT_SYMBOL(k_mem_slab_free);
-CEOF
-          cat /tmp/new_exports.c >> $EXPORTS
+          printf '/* DMIC exports */\n#include <zephyr/audio/dmic.h>\nEXPORT_SYMBOL(dmic_configure);\nEXPORT_SYMBOL(dmic_trigger);\nEXPORT_SYMBOL(dmic_read);\n/* Memory slab */\n#include <zephyr/kernel.h>\nEXPORT_SYMBOL(k_mem_slab_init);\nEXPORT_SYMBOL(k_mem_slab_free);\n' >> $EXPORTS
 
-          # Verificar exports
-          echo "=== EXPORTS ==="
-          tail -15 $EXPORTS
+          echo "=== EXPORTS ===" && tail -15 $EXPORTS
 
       - name: Check SAI1 pinctrl
         run: |
