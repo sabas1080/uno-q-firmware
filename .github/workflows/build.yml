@@ -41,19 +41,13 @@ jobs:
 
       - name: Build firmware
         run: |
-          CORE=$(find . -name "CMakeLists.txt" | grep -i "arduino\|zephyr" | grep -v "build\|test\|sample" | head -1 | xargs dirname)
-          echo "Core dir: $CORE"
-            
           CONF=$(find . -name "arduino_uno_q_stm32u585xx.conf" | head -1)
-          echo "Conf: $CONF"
           echo "CONFIG_I2S=y" >> $CONF
           echo "CONFIG_I2S_STM32=y" >> $CONF
   
-          cd zephyr
-          west build -b arduino_uno_q \
-            ../$CORE \
-            -- -DBOARD_ROOT=.. -DCONFIG_I2S=y -DCONFIG_I2S_STM32=y
-
+          # Listar CMakeLists para encontrar el correcto
+          find . -name "CMakeLists.txt" | grep -v "build\|llext\|test\|sample\|module" | head -20
+          
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
