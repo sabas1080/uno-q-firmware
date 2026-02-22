@@ -30,40 +30,43 @@ jobs:
       - name: Apply I2S config and DTS overlay
         run: |
           CORE=./modules/lib/ArduinoCore-zephyr
-
-          # Agregar CONFIG al .conf del board
+  
           echo "CONFIG_I2S=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
           echo "CONFIG_I2S_STM32=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-
-          # Agregar nodo I2S al overlay
+  
           cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
-
-          /* I2S2 para INMP441 */
+  
+          /* Deshabilitar SPI2 para liberar el periférico */
           &spi2 {
             status = "disabled";
           };
-
-          &i2s2 {
-            status = "okay";
-            pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
-            pinctrl-names = "default";
-            dmas = <&gpdma1 0 0x14 0x0>;
-            dma-names = "rx";
+  
+          /* Definir I2S2 sobre el mismo periférico SPI2 (0x40003800) */
+          / {
+            i2s2: i2s@40003800 {
+              compatible = "st,stm32-i2s";
+              reg = <0x40003800 0x400>;
+              interrupts = <60 5>;
+              clocks = <&rcc STM32_CLOCK(APB1, 14U)>;
+              dmas = <&gpdma1 0 0x14 0x0>;
+              dma-names = "rx";
+              pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
+              pinctrl-names = "default";
+              status = "okay";
+            };
           };
           EOF
-
+  
           # Exportar símbolos I2S para LLEXT
           EXPORTS=$CORE/loader/llext_exports.c
           cat >> $EXPORTS << 'EOF'
-
+  
           /* I2S exports */
           #include <zephyr/drivers/i2s.h>
           EXPORT_SYMBOL(i2s_configure);
           EXPORT_SYMBOL(i2s_trigger);
           EXPORT_SYMBOL(i2s_read);
           EOF
-
-          cat $EXPORTS | tail -10
 
       - name: Build loader
         run: |
