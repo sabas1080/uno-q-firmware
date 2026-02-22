@@ -36,29 +36,17 @@ jobs:
   
           cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
   
-          /* Deshabilitar SPI2 para liberar el periférico */
+          /* Reutilizar spi2 como I2S */
           &spi2 {
-            status = "disabled";
-          };
-  
-          / {
-            i2s2: i2s@40003800 {
-              compatible = "st,stm32-i2s";
-              #address-cells = <1>;
-              #size-cells = <0>;
-              reg = <0x40003800 0x400>;
-              interrupts = <60 5>;
-              clocks = <&rcc STM32_CLOCK(APB1, 14U)>;
-              dmas = <&gpdma1 0 0x14 0x0>;
-              dma-names = "rx";
-              pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
-              pinctrl-names = "default";
-              status = "okay";
-            };
+            compatible = "st,stm32-i2s";
+            dmas = <&gpdma1 0 0x14 0x0>;
+            dma-names = "rx";
+            pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
+            pinctrl-names = "default";
+            status = "okay";
           };
           EOF
   
-          # Exportar símbolos I2S para LLEXT
           EXPORTS=$CORE/loader/llext_exports.c
           cat >> $EXPORTS << 'EOF'
   
