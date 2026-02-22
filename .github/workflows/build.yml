@@ -27,50 +27,62 @@ jobs:
           west init -m https://github.com/arduino/ArduinoCore-zephyr --mr 0.53.1 .
           west update
 
-      - name: Apply I2S config and DTS overlay
+      - name: Apply SAI1 config and DTS overlay
         run: |
           CORE=./modules/lib/ArduinoCore-zephyr
   
-          echo "CONFIG_I2S=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
-          echo "CONFIG_I2S_STM32=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          # Quitar CONFIG_I2S, usar SAI1/DMIC
+          echo "CONFIG_I2S=n" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          echo "CONFIG_I2S_STM32=n" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          echo "CONFIG_AUDIO_DMIC=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
+          echo "CONFIG_MPXXDTYY=y" >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
   
+          # Ver qué pines SAI1 existen en el pinctrl
+          grep "sai1" ./zephyr/build/zephyr/zephyr.dts 2>/dev/null || \
+          grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi 2>/dev/null | head -30
+  
+          # Overlay con SAI1_A para MP34DT05TR
           cat >> $CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.overlay << 'EOF'
   
-          /* Reutilizar spi2 como I2S */
+          /* Revertir SPI2 a su estado original */
           &spi2 {
-            compatible = "st,stm32-i2s";
-            dmas = <&gpdma1 0 0x14 0x0>;
-            dma-names = "rx";
-            pinctrl-0 = <&spi2_sck_pb13 &spi2_miso_pb14 &spi2_nss_pb9>;
-            pinctrl-1 = <&spi2_sck_pd1 &spi2_miso_pc2>;
-            pinctrl-names = "default", "sleep";
+            compatible = "st,stm32h7-spi", "st,stm32-spi-fifo", "st,stm32-spi";
             status = "okay";
+          };
+  
+          /* SAI1 para MP34DT05TR PDM */
+          &sai1_a {
+            status = "okay";
+            pinctrl-0 = <&sai1_sck_a_pe5 &sai1_sd_a_pe6>;
+            pinctrl-names = "default";
+            dmas = <&gpdma1 1 0x24 0x0>;
+            dma-names = "rx";
+          };
+  
+          / {
+            mp34dt05: mp34dt05 {
+              compatible = "st,mpxxdtyy";
+              status = "okay";
+              io-channels = <&sai1_a>;
+            };
           };
           EOF
   
+          # Exportar símbolos DMIC para LLEXT
           EXPORTS=$CORE/loader/llext_exports.c
           cat >> $EXPORTS << 'EOF'
   
-          /* I2S exports */
-          #include <zephyr/drivers/i2s.h>
-          EXPORT_SYMBOL(i2s_configure);
-          EXPORT_SYMBOL(i2s_trigger);
-          EXPORT_SYMBOL(i2s_read);
+          /* DMIC exports for MP34DT05TR */
+          #include <zephyr/audio/dmic.h>
+          EXPORT_SYMBOL(dmic_configure);
+          EXPORT_SYMBOL(dmic_trigger);
+          EXPORT_SYMBOL(dmic_read);
           EOF
-
-      - name: Check I2S binding
-        run: |
-          cat ./zephyr/dts/bindings/i2s/st,stm32-i2s.yaml
       
-      - name: Check existing overlay and common yaml
+      - name: Check SAI1 pinctrl
         run: |
-          cat ./zephyr/dts/bindings/i2s/st,stm32-i2s-common.yaml
-          echo "---"
-          # Ver cómo está definido spi2 en el DTS base para copiar la estructura
-          grep -A 15 "spi2:" ./zephyr/boards/arduino/uno_q/arduino_uno_q.dts 2>/dev/null || \
-          grep -A 15 "spi@40003800" ./zephyr/boards/arduino/uno_q/arduino_uno_q.dts 2>/dev/null || \
-          grep -rA 15 "spi@40003800" ./zephyr/dts/arm/st/u5/ 2>/dev/null | head -30
-
+          grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
+          
       - name: Build loader
         run: |
           export ZEPHYR_BASE=$(pwd)/zephyr
