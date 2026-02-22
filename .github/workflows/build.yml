@@ -72,6 +72,15 @@ jobs:
       - name: Check I2S binding
         run: |
           cat ./zephyr/dts/bindings/i2s/st,stm32-i2s.yaml
+      
+      - name: Check existing overlay and common yaml
+        run: |
+          cat ./zephyr/dts/bindings/i2s/st,stm32-i2s-common.yaml
+          echo "---"
+          # Ver cómo está definido spi2 en el DTS base para copiar la estructura
+          grep -A 15 "spi2:" ./zephyr/boards/arduino/uno_q/arduino_uno_q.dts 2>/dev/null || \
+          grep -A 15 "spi@40003800" ./zephyr/boards/arduino/uno_q/arduino_uno_q.dts 2>/dev/null || \
+          grep -rA 15 "spi@40003800" ./zephyr/dts/arm/st/u5/ 2>/dev/null | head -30
 
       - name: Build loader
         run: |
