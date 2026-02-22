@@ -41,10 +41,11 @@ jobs:
             status = "disabled";
           };
   
-          /* Definir I2S2 sobre el mismo periférico SPI2 (0x40003800) */
           / {
             i2s2: i2s@40003800 {
               compatible = "st,stm32-i2s";
+              #address-cells = <1>;
+              #size-cells = <0>;
               reg = <0x40003800 0x400>;
               interrupts = <60 5>;
               clocks = <&rcc STM32_CLOCK(APB1, 14U)>;
@@ -67,6 +68,10 @@ jobs:
           EXPORT_SYMBOL(i2s_trigger);
           EXPORT_SYMBOL(i2s_read);
           EOF
+
+      - name: Check I2S binding
+        run: |
+          cat ./zephyr/dts/bindings/i2s/st,stm32-i2s.yaml
 
       - name: Build loader
         run: |
