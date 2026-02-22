@@ -14,62 +14,49 @@ jobs:
       - name: Install dependencies
         run: |
           pip3 install west
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Install Zephyr SDK
+        run: |
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.8/zephyr-sdk-0.16.8_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-0.16.8_linux-x86_64_minimal.tar.xz -C $HOME
+          $HOME/zephyr-sdk-0.16.8/setup.sh -t arm-zephyr-eabi -h
 
       - name: Init Zephyr workspace
         run: |
           west init -m https://github.com/arduino/ArduinoCore-zephyr --mr 0.53.1 .
           west update
 
-      - name: Install Zephyr SDK
-        run: |
-          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.8/zephyr-sdk-0.16.8_linux-x86_64_minimal.tar.xz
-          tar xf zephyr-sdk-0.16.8_linux-x86_64_minimal.tar.xz
-          ./zephyr-sdk-0.16.8/setup.sh -t arm-zephyr-eabi
-
-      - name: Find board files
-        run: |
-          find . -name "arduino_uno_q_stm32u585xx.conf" 2>/dev/null
-          find . -name "west.yml" 2>/dev/null | xargs cat
-  
-      - name: Apply config patches
+      - name: Apply I2S config
         run: |
           CONF=$(find . -name "arduino_uno_q_stm32u585xx.conf" | head -1)
-          echo "Found conf at: $CONF"
+          echo "Found: $CONF"
           echo "CONFIG_I2S=y" >> $CONF
           echo "CONFIG_I2S_STM32=y" >> $CONF
-          cat $CONF
 
-      - name: Build firmware
+      - name: Create minimal app
         run: |
-          CONF=$(find . -name "arduino_uno_q_stm32u585xx.conf" | head -1)
-          echo "CONFIG_I2S=y" >> $CONF
-          echo "CONFIG_I2S_STM32=y" >> $CONF
-  
-          # Ver qué hay en el directorio zephyr del ArduinoCore
-          ls ./modules/lib/ArduinoCore-zephyr/zephyr/ 2>/dev/null || echo "no zephyr dir"
-          cat ./modules/lib/ArduinoCore-zephyr/CMakeLists.txt | head -30
-  
-          # Crear app mínima
-          mkdir -p app
-          cat > app/CMakeLists.txt << 'CMAKE'
+          mkdir -p app/src
+          cat > app/CMakeLists.txt << 'EOF'
           cmake_minimum_required(VERSION 3.20)
           find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
           project(arduino_firmware)
           target_sources(app PRIVATE src/main.c)
-          CMAKE
-  
-          mkdir -p app/src
+          EOF
           echo "int main(void) { return 0; }" > app/src/main.c
-  
-          cat > app/prj.conf << 'PRJCONF'
+          cat > app/prj.conf << 'EOF'
           CONFIG_I2S=y
           CONFIG_I2S_STM32=y
-          PRJCONF
-  
+          EOF
+
+      - name: Build firmware
+        run: |
+          export ZEPHYR_BASE=$(pwd)/zephyr
+          export ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.8
           cd zephyr
-          west build -b arduino_uno_q ../app -- -DBOARD_ROOT=$(pwd)/..
-  
-      - name: Upload firmware artifact
+          west build -b arduino_uno_q/stm32u585xx ../app
+
+      - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
           name: zephyr-firmware-i2s
