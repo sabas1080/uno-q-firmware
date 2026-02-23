@@ -35,9 +35,7 @@ jobs:
           EXPORTS=$CORE/loader/llext_exports.c
 
           echo "CONFIG_AUDIO=y" >> $CONF
-          echo "CONFIG_AUDIO_DMIC=y" >> $CONF
-          echo "CONFIG_I2S=y" >> $CONF
-          echo "CONFIG_I2S_STM32_SAI=y" >> $CONF
+          printf '/* I2S SAI exports */\n#include <zephyr/drivers/i2s.h>\nEXPORT_SYMBOL(i2s_configure);\nEXPORT_SYMBOL(i2s_trigger);\nEXPORT_SYMBOL(i2s_read);\n/* Memory slab */\n#include <zephyr/kernel.h>\nEXPORT_SYMBOL(k_mem_slab_init);\nEXPORT_SYMBOL(k_mem_slab_free);\n' >> $EXPORTS
 
           grep -r "sai1_a\|sai1 {" ./zephyr/dts/arm/st/u5/ | head -10
 
