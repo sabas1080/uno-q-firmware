@@ -36,6 +36,8 @@ jobs:
 
           echo "CONFIG_AUDIO=y" >> $CONF
           echo "CONFIG_AUDIO_DMIC=y" >> $CONF
+          echo "CONFIG_I2S=y" >> $CONF
+          echo "CONFIG_I2S_STM32_SAI=y" >> $CONF
 
           grep -r "sai1_a\|sai1 {" ./zephyr/dts/arm/st/u5/ | head -10
 
@@ -50,6 +52,13 @@ jobs:
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
+      
+      - name: Check SAI Kconfig
+        run: |
+          find ./zephyr/drivers -name "*sai*" | head -10
+          grep -r "stm32.*sai\|SAI" ./zephyr/drivers/i2s/Kconfig 2>/dev/null | head -10
+          grep -r "stm32.*sai\|SAI" ./zephyr/drivers/audio/Kconfig* 2>/dev/null | head -10
+          grep -r "compatible.*stm32-sai" ./zephyr/dts/bindings/ 2>/dev/null | head -5
 
       - name: Build loader
         run: |
