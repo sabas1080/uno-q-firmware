@@ -54,7 +54,7 @@ jobs:
       
       - name: Check I2S SAI Kconfig name
         run: |
-          cat ./zephyr/drivers/i2s/Kconfig | grep -A5 "stm32_sai\|STM32_SAI\|i2s_stm32_sai"
+          find ./zephyr/drivers/i2s -name "Kconfig*" | xargs cat
 
       - name: Build loader
         run: |
