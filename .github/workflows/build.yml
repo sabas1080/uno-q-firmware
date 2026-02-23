@@ -34,29 +34,23 @@ jobs:
           CONF=$CORE/variants/arduino_uno_q_stm32u585xx/arduino_uno_q_stm32u585xx.conf
           EXPORTS=$CORE/loader/llext_exports.c
 
-          echo "CONFIG_AUDIO=y" >> $CONF
-          printf '/* I2S SAI exports */\n#include <zephyr/drivers/i2s.h>\nEXPORT_SYMBOL(i2s_configure);\nEXPORT_SYMBOL(i2s_trigger);\nEXPORT_SYMBOL(i2s_read);\n/* Memory slab */\n#include <zephyr/kernel.h>\nEXPORT_SYMBOL(k_mem_slab_init);\nEXPORT_SYMBOL(k_mem_slab_free);\n' >> $EXPORTS
-
-          grep -r "sai1_a\|sai1 {" ./zephyr/dts/arm/st/u5/ | head -10
+          echo "CONFIG_I2S=y" >> $CONF
+          echo "CONFIG_I2S_STM32_SAI=y" >> $CONF
 
           printf '&sai1_a {\n  status = "okay";\n  pinctrl-0 = <&sai1_sck_b_pb3 &sai1_fs_b_pb6 &sai1_sd_a_pc1>;\n  pinctrl-names = "default";\n  dmas = <&gpdma1 1 0x24 0x0>;\n  dma-names = "rx";\n};\n' >> $OVERLAY
 
-          echo "=== OVERLAY ===" && cat $OVERLAY
+          echo "=== OVERLAY ===" && tail -10 $OVERLAY
 
-          printf '/* DMIC exports */\n#include <zephyr/audio/dmic.h>\nEXPORT_SYMBOL(dmic_configure);\nEXPORT_SYMBOL(dmic_trigger);\nEXPORT_SYMBOL(dmic_read);\n/* Memory slab */\n#include <zephyr/kernel.h>\nEXPORT_SYMBOL(k_mem_slab_init);\nEXPORT_SYMBOL(k_mem_slab_free);\n' >> $EXPORTS
+          # Limpiar exports previos para evitar duplicados
+          sed -i '/k_mem_slab\|dmic_configure\|dmic_trigger\|dmic_read\|i2s_configure\|i2s_trigger\|i2s_read\|audio\/dmic\|drivers\/i2s\|Memory slab\|DMIC exports\|I2S SAI/d' $EXPORTS
+
+          printf '/* I2S SAI exports */\n#include <zephyr/drivers/i2s.h>\nEXPORT_SYMBOL(i2s_configure);\nEXPORT_SYMBOL(i2s_trigger);\nEXPORT_SYMBOL(i2s_read);\n/* Memory slab */\n#include <zephyr/kernel.h>\nEXPORT_SYMBOL(k_mem_slab_init);\nEXPORT_SYMBOL(k_mem_slab_free);\n' >> $EXPORTS
 
           echo "=== EXPORTS ===" && tail -15 $EXPORTS
 
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
-      
-      - name: Check SAI Kconfig
-        run: |
-          find ./zephyr/drivers -name "*sai*" | head -10
-          grep -r "stm32.*sai\|SAI" ./zephyr/drivers/i2s/Kconfig 2>/dev/null | head -10
-          grep -r "stm32.*sai\|SAI" ./zephyr/drivers/audio/Kconfig* 2>/dev/null | head -10
-          grep -r "compatible.*stm32-sai" ./zephyr/dts/bindings/ 2>/dev/null | head -5
 
       - name: Build loader
         run: |
