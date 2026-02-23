@@ -51,6 +51,10 @@ jobs:
       - name: Check SAI1 pinctrl
         run: |
           grep "sai1" ./modules/hal/stm32/dts/st/u5/stm32u585aiixq-pinctrl.dtsi | head -30
+      
+      - name: Check I2S SAI Kconfig name
+        run: |
+          cat ./zephyr/drivers/i2s/Kconfig | grep -A5 "stm32_sai\|STM32_SAI\|i2s_stm32_sai"
 
       - name: Build loader
         run: |
